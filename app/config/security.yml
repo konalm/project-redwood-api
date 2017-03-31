@@ -4,13 +4,10 @@ security:
 
     # http://symfony.com/doc/current/security.html#b-configuring-how-users-are-loaded
     providers:
-
         in_memory:
             memory: ~
 
     firewalls:
-        basicauth:
-
         # disables authentication for assets and the profiler, adapt it according to your needs
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
@@ -25,7 +22,3 @@ security:
 
             # http://symfony.com/doc/current/cookbook/security/form_login_setup.html
             #form_login: ~
-
-    access_control:
-      # require ROLE_ADMIN for /admin*
-      - {path: ^/admin, roles: ROLE_ADMIN}

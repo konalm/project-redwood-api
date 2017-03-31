@@ -15,7 +15,7 @@
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
      */
-    private $uuid;
+    private $id;
 
     /**
      * @ORM\Column(type="string", length=100)
@@ -184,5 +184,26 @@
     public function getPassw()
     {
         return $this->passw;
+    }
+
+    /**
+     * Get id
+     *
+     * @return integer
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    public function getAll()
+    {
+      return [
+        'firstname' => $this->getFirstName(),
+        'lastname' => $this->getLastName(),
+        'email' => $this->getEmail(),
+        'companyName' => $this->getCompanyName(),
+        'passw' => $this->getPassw()
+      ];
     }
 }
