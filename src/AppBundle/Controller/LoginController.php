@@ -7,6 +7,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Request;
 
+
 class LoginController extends Controller
 {
   /**
@@ -14,65 +15,66 @@ class LoginController extends Controller
    */
    public function loginAction(Request $request)
    {
-      $response = new Response();
       $requestContent = json_decode($request->getContent());
       $formData = json_decode($requestContent->LoginData);
-      $errorMessage = '';
 
-      // backend validation
-      if (!property_exists($formData, 'email') || (!$formData->email)) {
-        $errorMessage = 'Enter Email';
-      } else if (!property_exists($formData, 'passw') || (!$formData->passw)) {
-        $errorMessage = 'Enter Password';
-      }
+      $response = new Response();
+
+      // validation
+      $errorMessage = $this->validateForm($formData);
 
       if ($errorMessage) {
-        error_log('error');
-        $response->setStatusCode('400');
+        $response->setStatusCode('401');
         $response->setContent('Enter email and password');
         return $response;
       }
 
-      // check details in DB
-      $DbDetails = $this->getDoctrine()
+      $dbDetails = $this->getDoctrine()
         ->getRepository('AppBundle:userData')
         ->findOneByemail($formData->email);
 
-      error_log('db details -->');
-      error_log(print_r($DbDetails,true));
-
-      // check for email and password match
-      if ($DbDetails->getPassw() !== $formData->passw) {
+      // check if email exists
+      if (!$dbDetails) {
         $response->setStatusCode('401');
-        $response->setContent('Email and Password do not match');
+        $response->setContent('Email address not found');
         return $response;
       }
 
-      error_log('reach me ??');
+      // ckeck email and password match
+      if (!password_verify($formData->passw, $dbDetails->getPassw())) {
+        $response->setStatusCode('401');
+        $response->setContent('Incorrect Password');
+        return $response;
+      }
 
-      // Auth Token
-      // get ID from email
-      $authToken = $this->getDoctrine()
-        ->getRepository('AppBundle:authToken')
-        ->findOneByclient($DbDetails->getId());
-
-      // generate API token
       $key = md5(microtime().rand());
-      error_log($key);
+      $this->saveAuthToken($dbDetails, $key);
 
-      // update in token database where client equal id
+      return new Response(
+        json_encode(
+          array(
+            'message' => 'Login Successful',
+            'key' => $key
+      )));
+    }
+
+
+    function validateForm($formData) {
+      if (!property_exists($formData, 'email') || (!$formData->email)) {
+        return 'Enter Email';
+      } else if (!property_exists($formData, 'passw') || (!$formData->passw)) {
+        return 'Enter Password';
+      }
+    }
+
+    function saveAuthToken($dbDetails, $key) {
+      $authToken = $this->getDoctrine() // Get ID from token
+        ->getRepository('AppBundle:authToken')
+        ->findOneByclient($dbDetails->getId());
+
       $authToken->setAuthToken($key);
       $em = $this->getDoctrine()->getManager();
       $em->persist($authToken);
       $em->flush();
-
-      error_log('saved auth token');
-
-      $response->setContent(json_encode(array(
-        'message' => 'Login successful',
-        'key' => $key
-      )));
-
-      return $response;
     }
 }
