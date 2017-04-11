@@ -1,14 +1,27 @@
-<title>Template A</title>
+<title>Invoice Template - A</title>
+
 <body>
   <div class="header">
-    <h3>Header A</h3>
+    <h3>Invoice Template</h3>
   </div>
 
   <div class="main">
-    <h3>Hello world from template A</h3>
-    {{ userData.firstName }}
-    {{ userData.lastName }}
-    {{ userData.email }}
-    {{ userData.address }}
+    <h3>User</h3>
+    <ul>
+      <li>{{ user.firstName }}</li>
+      <li>{{ user.lastName }}</li>
+      <li>{{ user.email }}</li>
+      <li>{{ user.address }}</li>
+    </ul>
+    <br />
+    <h3>Client</h3>
+    <ul>
+      <li>{{ client.firstName }}</li>
+      <li>{{ client.lastName }}</li>
+      <li>{{ client.email }}</li>
+      <li>{{ client.address }}</li>
+      <li>{{ client.postcode }}</li>
+      <li>{{ client.city }}</li>
+    </ul>
   </div>
 </body>

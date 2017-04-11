@@ -8,26 +8,119 @@
   use Symfony\Component\HttpFoundation\Request;
   use Dompdf\Dompdf;
 
-  use AppBundle\Model\InvoiceData;
+  use AppBundle\Entity\userData;
+  use AppBundle\Entity\invoice;
 
 
   class InvoiceController extends Controller
   {
-
     /**
      * @Route("/collect-data")
      */
-     public function collectData(Request $request)
-     {
-       $requestContent = json_decode($request->getContent());
-       $invoiceData = json_decode($requestContent->InvoiceData);
+    public function collectData(Request $request)
+    {
+      $requestContent = json_decode($request->getContent());
+      $invoiceData = json_decode($requestContent->InvoiceData);
 
-       $this->userDataCollected = $invoiceData;
-       $this->container->get('app.Model.InvoiceData')->setUserData($invoiceData);
+      $this->userDataCollected = $invoiceData;
+      $this->container->get('app.Model.InvoiceData')->setUserData($invoiceData);
 
-       // store the user data
-       return new Response('collected invoice data');
-     }
+      return new Response('collected invoice data');
+    }
+
+    /**
+     * @Route("/invoice-create")
+     */
+    public function invoiceCreate(Request $request)
+    {
+      error_log('invoince create ()');
+      error_log($request);
+
+      $requestContent = json_decode($request->getContent());
+      $clientId = json_decode($requestContent->ClientId);
+
+      $authToken = $request->headers->get('key');
+
+      $userId = $this->getDoctrine()
+        ->getRepository('AppBundle:authToken')
+        ->findOneByauth_token($authToken)
+        ->getClient();
+
+      $newInvoice = new invoice();
+      $newInvoice->setUserId($userId);
+      $newInvoice->setClientId($clientId);
+
+      $em = $this->getDoctrine()->getManager();
+      $em->persist($newInvoice);
+      $em->flush();
+
+      return new Response(
+        json_encode(
+          array(
+            'message' => 'new invoice created',
+            'invoice_id' => $newInvoice->getId()
+      )));
+    }
+
+    /**
+     * @Route("/invoice-preview/{invoice_id}")
+     */
+    public function invoicePreview(Request $request, $invoice_id)
+    {
+      $user = new userData();
+      // $authToken = $request->headers->get('key');
+      $authToken = '22590f0a7ca2b927e31a69e14c828ed8';
+      $userId = $this->getDoctrine()
+        ->getRepository('AppBundle:authToken')
+        ->findOneByauth_token($authToken)
+        ->getClient();
+
+      if (!$userId) {
+        $response = new Response();
+        $response->setStatusCode('401');
+        $response->setBody('not authenticated user');
+        return $response;
+      }
+
+      error_log('invoice id -->');
+      error_log($invoice_id);
+
+      $userSettings = $this->getDoctrine()
+        ->getRepository('AppBundle:userSettings')
+        ->findOneByuser_id($userId)
+        ->getAll();
+
+
+      $clientId = $this->getDoctrine()
+        ->getRepository('AppBundle:invoice')
+        ->findOneByid($invoice_id)
+        ->getClientId();
+
+      $client = $this->getDoctrine()
+        ->getRepository('AppBundle:client')
+        ->findOneByid($clientId);
+
+
+
+      require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
+
+      $template_html = $this->renderView('template-a.html.twig',
+        array(
+          'user' => $userSettings,
+          'client' => $client
+      ));
+
+      error_log('invoice preview()');
+      error_log($invoice_id);
+
+      $dompdf = new Dompdf();
+      $dompdf->loadHtml($template_html);
+      $dompdf->setPaper('A4', 'portrait');
+      $dompdf->render();
+      $dompdf->stream("template_output.pdf", array("Attachment" => false));
+
+      return new Response('previewing invoice');
+    }
 
     /**
      * @Route("/pdf")
@@ -50,9 +143,9 @@
 
 
     /**
-     * @Route("/create-invoice")
+     * @Route("/create-invoice-pdf")
      */
-     public function createInvoiceAction(Request $request)
+     public function createInvoicePdfAction(Request $request)
      {
         require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
 

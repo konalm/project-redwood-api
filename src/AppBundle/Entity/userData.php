@@ -199,8 +199,8 @@
     public function getAll()
     {
       return [
-        'firstname' => $this->getFirstName(),
-        'lastname' => $this->getLastName(),
+        'firstName' => $this->getFirstName(),
+        'lastName' => $this->getLastName(),
         'email' => $this->getEmail(),
         'companyName' => $this->getCompanyName(),
         'passw' => $this->getPassw()

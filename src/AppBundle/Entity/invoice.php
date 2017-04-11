@@ -26,7 +26,7 @@
      * @ORM\Column(type="integer")
      */
     private $clientId;
-  
+
     /**
      * Get id
      *
@@ -84,4 +84,6 @@
     {
         return $this->clientId;
     }
+
+    // public function setAll($new_)
 }
