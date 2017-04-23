@@ -33,18 +33,11 @@
      */
     public function invoiceCreate(Request $request)
     {
-      error_log('invoince create ()');
-      error_log($request);
-
       $requestContent = json_decode($request->getContent());
       $clientId = json_decode($requestContent->ClientId);
 
       $authToken = $request->headers->get('key');
-
-      $userId = $this->getDoctrine()
-        ->getRepository('AppBundle:authToken')
-        ->findOneByauth_token($authToken)
-        ->getClient();
+      $userId = $this->getUserId($authToken);
 
       $newInvoice = new invoice();
       $newInvoice->setUserId($userId);
@@ -67,51 +60,21 @@
      */
     public function invoicePreview(Request $request, $invoice_id)
     {
-      $user = new userData();
-      // $authToken = $request->headers->get('key');
-      $authToken = '22590f0a7ca2b927e31a69e14c828ed8';
-      $userId = $this->getDoctrine()
-        ->getRepository('AppBundle:authToken')
-        ->findOneByauth_token($authToken)
-        ->getClient();
+      $authToken = $request->query->get('auth-token');
+      $userId = $this->getUserid($authToken);
 
+      // not authenticated
       if (!$userId) {
-        $response = new Response();
-        $response->setStatusCode('401');
-        $response->setBody('not authenticated user');
+        $response = notAuthenticatedResponse();
         return $response;
       }
 
-      error_log('invoice id -->');
-      error_log($invoice_id);
-
-      $userSettings = $this->getDoctrine()
-        ->getRepository('AppBundle:userSettings')
-        ->findOneByuser_id($userId)
-        ->getAll();
-
-
-      $clientId = $this->getDoctrine()
-        ->getRepository('AppBundle:invoice')
-        ->findOneByid($invoice_id)
-        ->getClientId();
-
-      $client = $this->getDoctrine()
-        ->getRepository('AppBundle:client')
-        ->findOneByid($clientId);
-
-
+      $userSettings = $this->getUserSettings($userId);
+      $clientId = $this->getClientId($invoice_id);
+      $client = $this->getClient($clientId);
+      $template_html = $this->getTemplateHtml($userSettings, $client);
 
       require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
-
-      $template_html = $this->renderView('template-a.html.twig',
-        array(
-          'user' => $userSettings,
-          'client' => $client
-      ));
-
-      error_log('invoice preview()');
-      error_log($invoice_id);
 
       $dompdf = new Dompdf();
       $dompdf->loadHtml($template_html);
@@ -123,59 +86,56 @@
     }
 
     /**
-     * @Route("/pdf")
+     * @Route("/invoice-download/{invoice_id}")
      */
-     public function pdfAction()
-     {
-       $html = $this->renderView('base.html.twig');
+    public function invoiceDownload(Request $request, $invoice_id)
+    {
+      $authToken = $request->query->get('auth-token');
+      $userId = $this->getUserId($authToken);
 
-        $filename = sprintf('test-%s.pdf', date('Y-m-d'));
-
-        return new Response(
-            $this->get('knp_snappy.pdf')->getOutputFromHtml($html),
-            200,
-            [
-                'Content-Type'        => 'application/pdf',
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
-            ]
-        );
-     }
-
-
-    /**
-     * @Route("/create-invoice-pdf")
-     */
-     public function createInvoicePdfAction(Request $request)
-     {
-        require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
-
-        // <!-- load template html -->
-        $template_html = $this->renderView('template-a.html.twig',
-          array('userData' => $this->userDataCollected)
-        );
-
-        $dompdf = new Dompdf();
-        $dompdf->loadHtml($template_html);
-
-        // (Optional) Setup the paper size and orientation
-        $dompdf->setPaper('A4', 'portrait');
-
-        // Render the HTML as PDF
-        $dompdf->render();
-        $dompdf->stream("dompdf_out.pdf", array("Attachment" => false));
-
-        return new Response('rendering');
+      // not authenticated
+      if (!$userId) {
+        $response = notAuthenticatedResponse();
+        return $response;
       }
 
+      $userSettings = $this->getUserSettings($userId);
+      $client = $this->getClient($this->getClientId($invoice_id));
+      $template_html = $this->getTemplateHtml($userSettings, $client);
+
+      require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
+
+      $dompdf = new Dompdf();
+      $dompdf->loadHtml($template_html);
+      $dompdf->setPaper('A4', 'portrait');
+      $dompdf->render();
+      $dompdf->stream();
+
+      return new Response('download invoice');
+    }
+
     /**
-    * @Route("/send-invoice")
+    * @Route("/send-invoice/{invoice_id}")
     */
-    public function sendInvoiceAction()
+    public function sendInvoice(Request $request, $invoice_id)
     {
-      // <!-- load template html -->
-      $template_html = $this->render('template-a.html.twig',
-        array()
-      );
+      error_log('send invoice');
+
+      $authToken = $request->headers->get('key');
+      $userId = $this->getUserId($authToken);
+
+      // not authenticated
+      if (!$userId) {
+        $response = $this->notAuthenticatedResponse();
+        return $response;
+      }
+
+      $userSettings = $this->getUserSettings($userId);
+      $clientId =  $this->getClientId($invoice_id);
+      $client = $this->getClient($clientId);
+      $template_html = $this->getTemplateHtml($userSettings, $client);
+
+      require $this->get('kernel')->getRootDir() .  '/../vendor/autoload.php';
 
       $dompdf = new Dompdf();
       $dompdf->loadHtml($template_html);
@@ -198,5 +158,49 @@
       $this->get('mailer')->send($message);
 
       return new Response('message sent');
+    }
+
+
+    function getUserId($authToken) {
+      return $this->getDoctrine()
+        ->getRepository('AppBundle:authToken')
+        ->findOneByauth_token($authToken)
+        ->getClient();
+    }
+
+    function notAuthenticatedResponse() {
+      $response = new Response();
+      $response->setStatusCode('401');
+      $response->setBody('not authenticated user');
+      return $response;
+    }
+
+    function getUserSettings($userId) {
+      return $this->getDoctrine()
+        ->getRepository('AppBundle:userSettings')
+        ->findOneByuser_id($userId)
+        ->getAll();
+    }
+
+    function getClientId($invoice_id) {
+      return  $this->getDoctrine()
+        ->getRepository('AppBundle:invoice')
+        ->findOneByid($invoice_id)
+        ->getClientId();
+    }
+
+    function getClient($clientId) {
+      return $this->getDoctrine()
+        ->getRepository('AppBundle:client')
+        ->findOneByid($clientId);
+    }
+
+    function getTemplateHtml($userSettings, $client) {
+      return $this->renderView(
+        'template-a.html.twig',
+          array(
+            'user' => $userSettings,
+            'client' => $client
+          ));
     }
   }

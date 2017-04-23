@@ -18,7 +18,10 @@
      */
     public function GetUserDataAction(Request $request)
     {
+      error_log('get user data');
       $authenticationKey = $request->headers->get('key');
+      error_log($authenticationKey);
+      
 
       $verifyClient = $this->getDoctrine()
         ->getRepository('AppBundle:authToken')
